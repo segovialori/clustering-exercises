@@ -7,9 +7,12 @@ import matplotlib.pyplot as plt
 from env import host, user, password 
 import os
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 import sklearn.preprocessing
 
-####################ACQUIRE############################
+##############################################################
+#########################ACQUIRE##############################
+##############################################################
 
 #Connection function to access Codeup mySQL Database and retrieve zillow dataset 
 def get_connection(db, user=user, host=host, password=password):
@@ -71,6 +74,11 @@ def get_zillow_data(cached=False):
         df = pd.read_csv('zillow.csv', index_col=0)
         
     return df
+
+##############################################################
+######################PREPARE#################################
+#############################################################
+
 
 def count_values(df):
     '''
@@ -217,3 +225,47 @@ def wrangle_zillow():
     df = df.dropna()
     
     return df
+
+
+##############################################################
+#########################SCALING##############################
+##############################################################
+
+def min_max_scaler(train, valid, test):
+    '''
+    Uses the train & test datasets created by the split_my_data function
+    Returns 3 items: mm_scaler, train_scaled_mm, test_scaled_mm
+    This is a linear transformation. Values will lie between 0 and 1
+    '''
+    num_vars = list(train.select_dtypes('number').columns)
+    scaler = MinMaxScaler(copy=True, feature_range=(0,1))
+    train[num_vars] = scaler.fit_transform(train[num_vars])
+    valid[num_vars] = scaler.transform(valid[num_vars])
+    test[num_vars] = scaler.transform(test[num_vars])
+    return scaler, train, valid, test
+
+##############################################################
+###################MISSING VALUES TABLE#######################
+##############################################################
+
+def missing_zero_values_table(df):
+    '''This function will look at any data set and report back on zeros and nulls for every column while also giving percentages of total values
+        and also the data types. The message prints out the shape of the data frame and also tells you how many columns have nulls '''
+    zero_val = (df == 0.00).astype(int).sum(axis=0)
+    null_count = df.isnull().sum()
+    mis_val_percent = 100 * df.isnull().sum() / len(df)
+    mz_table = pd.concat([zero_val, null_count, mis_val_percent], axis=1)
+    mz_table = mz_table.rename(
+    columns = {0 : 'Zero Values', 1 : 'null_count', 2 : '% of Total Values'})
+    mz_table['Total Zeroes + Null Values'] = mz_table['Zero Values'] + mz_table['null_count']
+    mz_table['% Total Zero + Null Values'] = 100 * mz_table['Total Zeroes + Null Values'] / len(df)
+    mz_table['Data Type'] = df.dtypes
+    mz_table = mz_table[
+        mz_table.iloc[:,1] >= 0].sort_values(
+        '% of Total Values', ascending=False).round(1)
+    print ("Your selected dataframe has " + str(df.shape[1]) + " columns and " + str(df.shape[0]) + " Rows.\n"      
+            "There are " +  str((mz_table['null_count'] != 0).sum()) +
+          " columns that have NULL values.")
+#         mz_table.to_excel('D:/sampledata/missing_and_zero_values.xlsx', freeze_panes=(1,0), index = False)
+    return mz_table
+missing_zero_values_table(df)
